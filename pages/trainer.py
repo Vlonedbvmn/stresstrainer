@@ -330,7 +330,7 @@ if st.sidebar.button("🔄 Скинути статистику", use_container_w
 st.markdown("""
 <div class="trainer-header">
     <h1>📚 Тренажер наголосів</h1>
-    <p>Натисніть на голосну букву, на яку падає наголос</p>
+    <p>Натисніть на букву, що позначає наголошений звук</p>
 </div>
 """, unsafe_allow_html=True)
 
