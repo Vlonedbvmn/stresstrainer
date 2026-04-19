@@ -34,7 +34,7 @@ def get_connection():
         st.error(f"❌ Помилка підключення до БД: {e}")
         return None
 
-ef login_user(connection, username_or_email: str, password: str):
+def login_user(connection, username_or_email: str, password: str):
     """
     Перевіряє логін.
     Повертає (True, user_dict) або (False, повідомлення_помилки).
