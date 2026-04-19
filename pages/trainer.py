@@ -1,6 +1,12 @@
 import streamlit as st
 import random
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+EET = ZoneInfo("Europe/Kyiv")
+
+def _now_est():
+    return datetime.now(EET).replace(tzinfo=None)  # naive EET for MySQL
 import pathlib
 import mysql.connector
 from mysql.connector import Error
@@ -110,9 +116,10 @@ def _ensure_session():
         return
     try:
         cur = conn.cursor()
+        now = _now_est()
         cur.execute(
-            "INSERT INTO training_sessions (user_id) VALUES (%s)",
-            (st.session_state['user_id'],)
+            "INSERT INTO training_sessions (user_id, started_at) VALUES (%s, %s)",
+            (st.session_state['user_id'], now)
         )
         conn.commit()
         st.session_state['session_id'] = cur.lastrowid
@@ -135,9 +142,10 @@ def _record_answer(word: str, is_correct: bool):
         return
     try:
         cur = conn.cursor()
+        now = _now_est()
         cur.execute(
-            "INSERT INTO session_answers (session_id, word, is_correct) VALUES (%s, %s, %s)",
-            (sid, word, is_correct)
+            "INSERT INTO session_answers (session_id, word, is_correct, answered_at) VALUES (%s, %s, %s, %s)",
+            (sid, word, is_correct, now)
         )
         conn.commit()
         cur.close()
@@ -167,14 +175,14 @@ def _close_session():
             cur = conn.cursor()
             cur.execute("""
                 UPDATE training_sessions
-                SET ended_at      = NOW(),
+                SET ended_at      = %s,
                     total_count   = %s,
                     correct_count = %s,
                     wrong_count   = %s,
                     accuracy      = %s,
                     grade         = %s
                 WHERE id = %s
-            """, (total, correct, wrong, accuracy, grade, sid))
+            """, (_now_est(), total, correct, wrong, accuracy, grade, sid))
             conn.commit()
             cur.close()
         except Error as e:
@@ -218,7 +226,7 @@ def _export_statistics():
         "=" * 60,
         "СТАТИСТИКА ТРЕНУВАННЯ НАГОЛОСІВ НМТ",
         "=" * 60,
-        f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}",
+        f"Дата: {_now_est().strftime('%d.%m.%Y %H:%M:%S')} (EET)",
         "",
         "ЗАГАЛЬНА СТАТИСТИКА:",
         "-" * 60,
@@ -377,7 +385,7 @@ if st.session_state.total_count > 0:
     if st.sidebar.button("📥 Експортувати статистику", use_container_width=True):
         stats_text = _export_statistics()
         if stats_text:
-            filename = f"nmt_statistics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            filename = f"nmt_statistics_{_now_est().strftime('%Y%m%d_%H%M%S')}.txt"
             st.sidebar.download_button(
                 label="⬇️ Завантажити звіт",
                 data=stats_text,
