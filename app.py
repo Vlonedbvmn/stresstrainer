@@ -7,19 +7,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
 st.markdown(
     """
     <style>
     [alt=Logo] {
-        padding: 15 px;
-        height: 70px; /* Adjust this value for your desired size */
-        width: auto; /* Maintains aspect ratio */
+        padding: 15px;
+        height: 70px;
+        width: auto;
     }
-
-     [data-testid="stSidebarHeader"] {
-            margin-top: 1rem; /* Adjust the top margin as needed (e.g., 20px) */
-        }
+    [data-testid="stSidebarHeader"] {
+        margin-top: 1rem;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -27,14 +25,27 @@ st.markdown(
 
 st.logo("ukrlogonew.png")
 
+account_label = (
+    f"{st.session_state['username']}"
+    if st.session_state.get('username')
+    else "Акаунт"
+)
+
+teacher_label = (
+    "Панель вчителя"
+    if st.session_state.get("teacher_auth")
+    else "Панель вчителя"
+)
+
 pages = {
-    "Головне меню": [  
+    "Головне меню": [
         st.Page("pages/home.py", title="Головна", icon="🏠"),
         st.Page("pages/trainer.py", title="Тренажер наголосів", icon="📚"),
+        st.Page("pages/account.py", title=account_label, icon="👤"),
     ],
-    # "Додатково": 
-    #     st.Page("pages/about.py", title="Про застосунок", icon="ℹ️"),
-    # ]
+    "Адміністрування": [
+        st.Page("pages/teacher.py", title=teacher_label, icon="🎓"),
+    ],
 }
 
 nav = st.navigation(pages)
