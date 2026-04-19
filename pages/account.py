@@ -6,10 +6,7 @@ import os
 
 # Ensure root is on path so we can import db helpers
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from db import (
-    login_user, register_user,
-    get_last_sessions, get_overall_stats
-)
+
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
 def load_css(file_path):
@@ -37,6 +34,150 @@ def get_connection():
         st.error(f"❌ Помилка підключення до БД: {e}")
         return None
 
+ef login_user(connection, username_or_email: str, password: str):
+    """
+    Перевіряє логін.
+    Повертає (True, user_dict) або (False, повідомлення_помилки).
+    """
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT * FROM users WHERE username = %s OR email = %s",
+            (username_or_email, username_or_email)
+        )
+        user = cursor.fetchone()
+        if not user:
+            cursor.close()
+            return False, "Користувача не знайдено."
+
+        pw_hash, _ = hash_password(password, user['salt'])
+        if pw_hash != user['password_hash']:
+            cursor.close()
+            return False, "Невірний пароль."
+
+        # Оновлюємо час останнього входу
+        cursor.execute(
+            "UPDATE users SET last_login = NOW() WHERE id = %s",
+            (user['id'],)
+        )
+        connection.commit()
+        cursor.close()
+        return True, user
+
+    except Error as e:
+        cursor.close()
+        return False, str(e)
+
+
+# ============================================
+# СЕСІЇ ТРЕНУВАНЬ
+# ============================================
+
+def start_training_session(connection, user_id: int):
+    """Починає нову сесію тренування. Повертає session_id."""
+    cursor = connection.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO training_sessions (user_id) VALUES (%s)",
+            (user_id,)
+        )
+        connection.commit()
+        session_id = cursor.lastrowid
+        cursor.close()
+        return session_id
+    except Error as e:
+        print(f"❌ Помилка старту сесії: {e}")
+        cursor.close()
+        return None
+
+
+def save_answer(connection, session_id: int, word: str, is_correct: bool):
+    """Зберігає одну відповідь у сесії."""
+    cursor = connection.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO session_answers (session_id, word, is_correct) VALUES (%s, %s, %s)",
+            (session_id, word, is_correct)
+        )
+        connection.commit()
+        cursor.close()
+    except Error as e:
+        print(f"❌ Помилка збереження відповіді: {e}")
+        cursor.close()
+
+
+def finish_training_session(connection, session_id: int,
+                             total: int, correct: int, wrong: int,
+                             accuracy: float, grade: int):
+    """Завершує сесію та зберігає підсумкову статистику."""
+    cursor = connection.cursor()
+    try:
+        cursor.execute("""
+            UPDATE training_sessions
+            SET ended_at = NOW(),
+                total_count = %s,
+                correct_count = %s,
+                wrong_count = %s,
+                accuracy = %s,
+                grade = %s
+            WHERE id = %s
+        """, (total, correct, wrong, accuracy, grade, session_id))
+        connection.commit()
+        cursor.close()
+    except Error as e:
+        print(f"❌ Помилка завершення сесії: {e}")
+        cursor.close()
+
+
+# ============================================
+# СТАТИСТИКА ДАШБОРДУ
+# ============================================
+
+def get_last_sessions(connection, user_id: int, limit: int = 5):
+    """Повертає останні N сесій користувача."""
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT id, started_at, ended_at, total_count, correct_count,
+                   wrong_count, accuracy, grade
+            FROM training_sessions
+            WHERE user_id = %s AND ended_at IS NOT NULL
+            ORDER BY started_at DESC
+            LIMIT %s
+        """, (user_id, limit))
+        rows = cursor.fetchall()
+        cursor.close()
+        return rows
+    except Error as e:
+        print(f"❌ Помилка отримання сесій: {e}")
+        cursor.close()
+        return []
+
+
+def get_overall_stats(connection, user_id: int):
+    """Повертає загальну статистику користувача."""
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT
+                COUNT(*) AS total_sessions,
+                COALESCE(SUM(total_count), 0) AS total_answers,
+                COALESCE(SUM(correct_count), 0) AS total_correct,
+                COALESCE(SUM(wrong_count), 0) AS total_wrong,
+                COALESCE(ROUND(AVG(accuracy), 1), 0) AS avg_accuracy,
+                COALESCE(ROUND(AVG(grade), 1), 0) AS avg_grade,
+                COALESCE(MAX(accuracy), 0) AS best_accuracy,
+                COALESCE(MAX(grade), 0) AS best_grade
+            FROM training_sessions
+            WHERE user_id = %s AND ended_at IS NOT NULL
+        """, (user_id,))
+        stats = cursor.fetchone()
+        cursor.close()
+        return stats
+    except Error as e:
+        print(f"❌ Помилка статистики: {e}")
+        cursor.close()
+        return None
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def grade_color(grade):
