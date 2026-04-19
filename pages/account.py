@@ -4,6 +4,13 @@ import mysql.connector
 from mysql.connector import Error
 import hashlib
 import secrets
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+EET = ZoneInfo("Europe/Kyiv")
+
+def _now_est():
+    return datetime.now(EET).replace(tzinfo=None)  # naive EET for MySQL
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
 def load_css(file_path):
@@ -97,7 +104,7 @@ def _login_user(conn, identifier, password):
             cur.close()
             return False, "Невірний пароль."
 
-        cur.execute("UPDATE users SET last_login = NOW() WHERE id = %s", (user['id'],))
+        cur.execute("UPDATE users SET last_login = %s WHERE id = %s", (_now_est(), user['id']))
         conn.commit()
         cur.close()
         return True, user
