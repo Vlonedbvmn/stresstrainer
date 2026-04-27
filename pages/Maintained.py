@@ -19,5 +19,5 @@ css_path = pathlib.Path("assets/styles.css")
 load_css(css_path)
 
 st.sidebar.title("НМТ Тренажер")
-st.sidebar.markdown("Зараз працюемо над відновленням бази даних)")
+st.sidebar.markdown("Зараз працюемо над відновленням бази даних) \n Вибачте за незручності")
 
