@@ -39,7 +39,7 @@ teacher_label = (
 
 pages = {
     "Головне меню": [
-        st.Page("pages/home.py", title="Головна", icon="🏠")
+        st.Page("pages/Maintained.py", title="Головна", icon="🏠")
         #st.Page("pages/trainer.py", title="Тренажер наголосів", icon="📚"),
         #st.Page("pages/account.py", title=account_label, icon="👤"),
     ]
